@@ -34,9 +34,9 @@ class MineField {
          * @param y The y-coordinate of the action.
          * @param action The action to take.
          * 
-         * @return True if the user wins, false otherwise.
+         * @return the time mine has been moved if the user wins, -1 if user is not yet winning.
          */
-        bool act(int x, int y, int action);
+        int act(int x, int y, int action);
 
         /**
          * @brief Print the minefield to the console.
@@ -48,6 +48,7 @@ class MineField {
         int _mines;
         int** _field;
         int** _status;
+        int _mine_move_count;
 
         /**
          * @brief Recursively reveal the cell: If a field is not adjacent to a mine, reveal all adjacent fields as well.

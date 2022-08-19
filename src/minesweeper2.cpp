@@ -14,6 +14,7 @@ MineField::MineField(int size, int mines) {
         mines = 20;
     }
     this->_mines = mines;
+    this->_mine_move_count = 0;
 
     this->_field = NULL;
     this->_status = NULL;
@@ -79,14 +80,14 @@ void MineField::reset() {
 // The only way user interact with the minefield is by calling act().
 // User wins when all mines are not revealed and all non-mine fields are revealed. Function returns true. 
 // User CANNOT really lose. Function returns false when user is not yet winning.
-bool MineField::act(int x, int y, int action) {
+int MineField::act(int x, int y, int action) {
     // validate input
     if (x < 0 || x >= this->_size || y < 0 || y >= this->_size) {
-        return false; // invalid coordinate, user won't win yet
+        return -1; // invalid coordinate, user won't win yet
     }
 
     if (action < ACTION_CLEAR || action > ACTION_QUESTION) {
-        return false; // invalid action, user won't win yet
+        return -1; // invalid action, user won't win yet
     }
     
     // when revealing a mine, try to move the mine to an unrevealed cell
@@ -112,35 +113,36 @@ bool MineField::act(int x, int y, int action) {
                 this->_field[new_x][new_y] = -1;
                 this->_field[x][y] = 0;
                 this->_refresh(); // must refresh after move
+                this->_mine_move_count++;
             } else {
                 // all unrevealed cells are mines, user wins. 
                 // this is also the only way user can win.
                 this->_reveal_all(); // reveal all mines
-                return true;
+                return this->_mine_move_count;
             }
         }
         this->_reveal(x, y);
     } else if (action == ACTION_CLEAR) {
         if (this->_status[x][y] == STATUS_REVEALED) {
-            return false; // can't clear a revealed field, user won't win yet
+            return -1; // can't clear a revealed field, user won't win yet
         } else {
             this->_status[x][y] = STATUS_NEW;
         }
     } else if (action == ACTION_FLAG) {
         if (this->_status[x][y] == STATUS_REVEALED) {
-            return false; // can't question a revealed field, user won't win yet
+            return -1; // can't question a revealed field, user won't win yet
         } else {
             this->_status[x][y] = STATUS_FLAGGED;
         }
     } else if (action == ACTION_QUESTION) {
         if (this->_status[x][y] == STATUS_REVEALED) {
-            return false; // can't question a revealed field, user won't win yet
+            return -1; // can't question a revealed field, user won't win yet
         } else {
             this->_status[x][y] = STATUS_QUESTION;
         }
     }
 
-    return false; // user won't win yet
+    return -1; // user won't win yet
 }
 
 

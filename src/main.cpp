@@ -17,12 +17,20 @@
  */
 int main(int argc, char* argv[]) {
     // parse command line arguments: prog size mines
-    if (argc != 3) {
-        std::cout << "Usage: " << argv[0] << " SIZE MINES" << std::endl;
-        return 1;
+    int size = 0;
+    int mines = 0;
+    
+    if (argc == 3) {
+        std::cout << "You may also run" << argv[0] << " SIZE MINES to start game." << std::endl;
+        size = atoi(argv[1]);
+        mines = atoi(argv[2]);
+    } else {
+        std::cout << "You may also run" << argv[0] << " SIZE MINES to start game." << std::endl;
+        std::cout << "Size: ";
+        std::cin >> size;
+        std::cout << "Mines: ";
+        std::cin >> mines;
     }
-    int size = atoi(argv[1]);
-    int mines = atoi(argv[2]);
     if (size < 1 || size > 10) {
         std::cout << "Size must be between 1 and 10" << std::endl;
         return 1;
@@ -34,8 +42,8 @@ int main(int argc, char* argv[]) {
 
     MineField mf = MineField(size, mines);
 
-    bool won = false;
-    while (!won) {
+    int moves = -1;
+    while (moves < 0) {
         // print the field
         mf.print_field();
         // ask the user for a move
@@ -64,9 +72,14 @@ int main(int argc, char* argv[]) {
             continue;
         }
         // make the move  
-        won = mf.act(x, y, act);
+        moves = mf.act(x, y, act);
     }
     // print the field one last time
     mf.print_field();
-    std::cout << "You won!" << std::endl;
+
+    if (moves == 0) {
+        std::cout << "You win!" << std::endl;
+    } else {
+        std::cout << "You triggered a mine for " << moves << " times!" << std::endl;
+    }
 }

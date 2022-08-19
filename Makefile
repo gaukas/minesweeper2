@@ -4,7 +4,7 @@ HEADER = include/minesweeper2.h
 CFLAGS = -c -Wall -Iinclude
 
 minesweeper2: main.o minesweeper2.o
-	$(CC) -o $@ main.o minesweeper2.o
+	$(CC) -o $@ main.o minesweeper2.o -static
 
 main.o: src/main.cpp $(HEADER)
 	$(CC) $(CFLAGS) $< -o $@
