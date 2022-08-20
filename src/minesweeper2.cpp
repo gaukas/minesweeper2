@@ -5,24 +5,26 @@
 
 MineField::MineField(int size, int mines) {
     // validate input
-    if (size <= 0 || size > 10) {
-        size = 10;
+    if (size <= 0) {
+        std::cout << "Size must be positive" << std::endl;
+        return;
     }
     this->_size = size;
 
     if (mines <= 0 || mines >= size * size) {
-        mines = 20;
+        std::cout << "Mines must be positive and less than size * size" << std::endl;
+        return;
     }
     this->_mines = mines;
-    this->_mine_move_count = 0;
 
     this->_field = NULL;
     this->_status = NULL;
-
-    this->reset();
 }
 
-void MineField::reset() {
+void MineField::reset(int safe_x, int safe_y) {
+    this->_mine_move_count = 0;
+    this->_unrevealed = this->_size * this->_size - 1; // -1 for safe cell
+
     // reset rand seed to time now
     srand( (unsigned int)time(NULL));
 
@@ -62,143 +64,128 @@ void MineField::reset() {
             this->_status[i][j] = STATUS_NEW;
         }
     }
+    // reveal the safe cell
+    this->_status[safe_x][safe_y] = STATUS_REVEALED;
 
     // randomly place mines
     for (int i = 0; i < this->_mines; i++) {
         int x = rand() % this->_size;
         int y = rand() % this->_size;
-        if (this->_field[x][y] == 0) {
+        if (this->_field[x][y] == 0 && (x != safe_x || y != safe_y)) {
             this->_field[x][y] = -1;
         } else {
             i--;
         }
     }
 
-    this->_refresh(); // must refresh after reset
+    this->_recount(); // must recount after reset
 }
 
-// The only way user interact with the minefield is by calling act().
+// revealed -> revealed
+// new -> flagged
+// flagged -> question
+// question -> new
+int MineField::flag(int x, int y) {
+    // validate input
+    if (x < 0 || x >= this->_size || y < 0 || y >= this->_size) {
+        return -1; // invalid coordinate
+    }
+
+    if (this->_status[x][y] == STATUS_REVEALED) {
+        return -1; // can't flag a revealed field
+    } else if (this->_status[x][y] == STATUS_NEW) {
+        this->_status[x][y] = STATUS_FLAGGED;
+        return STATUS_FLAGGED;
+    } else if (this->_status[x][y] == STATUS_FLAGGED) {
+        this->_status[x][y] = STATUS_QUESTION;
+        return STATUS_QUESTION;
+    } else if (this->_status[x][y] == STATUS_QUESTION) {
+        this->_status[x][y] = STATUS_NEW;
+        return STATUS_NEW;
+    } else {
+        return -1; // invalid status
+    }
+}
+
 // User wins when all mines are not revealed and all non-mine fields are revealed. Function returns true. 
 // User CANNOT really lose. Function returns false when user is not yet winning.
-int MineField::act(int x, int y, int action) {
+int MineField::reveal(int x, int y) {
     // validate input
     if (x < 0 || x >= this->_size || y < 0 || y >= this->_size) {
         return -1; // invalid coordinate, user won't win yet
     }
-
-    if (action < ACTION_CLEAR || action > ACTION_QUESTION) {
-        return -1; // invalid action, user won't win yet
-    }
     
     // when revealing a mine, try to move the mine to an unrevealed cell
-    if (action == ACTION_REVEAL) {
-        if (this->_field[x][y] == -1) {
-            // scan the field to find all unrevealed cell that is not a mine
-            // and randomly move the mine to one of them
-            std::vector<std::pair<int, int>> unrevealed;
-            for (int i = 0; i < this->_size; i++) {
-                for (int j = 0; j < this->_size; j++) {
-                    // not revealed and not a mine
-                    if (this->_status[i][j] != STATUS_REVEALED && this->_field[i][j] != -1) {
-                        unrevealed.push_back(std::make_pair(i, j));
-                    }
+    if (this->_field[x][y] == -1) {
+        // scan the field to find all unrevealed cell that is not a mine
+        // and randomly move the mine to one of them
+        std::vector<std::pair<int, int>> unrevealed;
+        for (int i = 0; i < this->_size; i++) {
+            for (int j = 0; j < this->_size; j++) {
+                // not revealed and not a mine
+                if (this->_status[i][j] != STATUS_REVEALED && this->_field[i][j] != -1) {
+                    unrevealed.push_back(std::make_pair(i, j));
                 }
             }
+        }
 
-            if (unrevealed.size() > 0) {
-                // randomly select one of the unrevealed cell
-                int index = rand() % unrevealed.size();
-                int new_x = unrevealed[index].first;
-                int new_y = unrevealed[index].second;
-                this->_field[new_x][new_y] = -1;
-                this->_field[x][y] = 0;
-                this->_refresh(); // must refresh after move
-                this->_mine_move_count++;
-            } else {
-                // all unrevealed cells are mines, user wins. 
-                // this is also the only way user can win.
-                this->_reveal_all(); // reveal all mines
-                return this->_mine_move_count;
-            }
+        if (unrevealed.size() > 0) {
+            // randomly select one of the unrevealed cell
+            int index = rand() % unrevealed.size();
+            int new_x = unrevealed[index].first;
+            int new_y = unrevealed[index].second;
+            this->_field[new_x][new_y] = -1;
+            this->_field[x][y] = 0;
+            this->_recount(); // must refresh after move
+            this->_mine_move_count++;
         }
-        this->_reveal(x, y);
-    } else if (action == ACTION_CLEAR) {
-        if (this->_status[x][y] == STATUS_REVEALED) {
-            return -1; // can't clear a revealed field, user won't win yet
-        } else {
-            this->_status[x][y] = STATUS_NEW;
-        }
-    } else if (action == ACTION_FLAG) {
-        if (this->_status[x][y] == STATUS_REVEALED) {
-            return -1; // can't question a revealed field, user won't win yet
-        } else {
-            this->_status[x][y] = STATUS_FLAGGED;
-        }
-    } else if (action == ACTION_QUESTION) {
-        if (this->_status[x][y] == STATUS_REVEALED) {
-            return -1; // can't question a revealed field, user won't win yet
-        } else {
-            this->_status[x][y] = STATUS_QUESTION;
-        }
+    }
+    this->_reveal(x, y);
+
+    if (this->_unrevealed == this->_mines) {
+        // all unrevealed cells are mines, user wins.
+        this->_reveal_all_mines_unless_flagged(); // reveal all mines
+        return this->_mine_move_count;
     }
 
     return -1; // user won't win yet
 }
 
-
-void MineField::print_field() {
-    /********************
-    + A B C D E F G H I J +
-    0                     0
-    1                     1
-    2                     2
-    3                     3
-    4                     4
-    5                     5
-    6                     6
-    7                     7
-    8                     8  
-    9                     9
-    + A B C D E F G H I J +
-    **********************/
-
-    // First line is the column numbers A-J
-    std::cout << "+ ";
-    for (int i = 0; i < this->_size; i++) {
-        std::cout << (char)(i + 65) << " ";
+char** MineField::field_report(int size) {
+    if (size != this->_size) {
+        return NULL; // callee dosn't know the size of the minefield
     }
-    std::cout << "+" << std::endl;
 
-    // print the field
+    char** report = new char*[size];
+    for (int i = 0; i < size; i++) {
+        report[i] = new char[size];
+    }
+
+    // generate the report
     for (int i = 0; i < this->_size; i++) {
-        std::cout << i << " ";
         for (int j = 0; j < this->_size; j++) {
             if (this->_status[i][j] == STATUS_REVEALED) {
                 if (this->_field[i][j] == -1) {
-                    std::cout << "X ";
+                    report[i][j] = 'X';
                 } else {
-                    std::cout << this->_field[i][j] << " ";
+                    if (this->_field[i][j] >= 0 && this->_field[i][j] < 10) {
+                        report[i][j] = '0' + this->_field[i][j];
+                    } else {
+                        report[i][j] = 'E'; // error, map corrupted
+                    }
                 }
             } else if (this->_status[i][j] == STATUS_NEW) {
-                std::cout << "  ";
+                report[i][j] = ' ';
             } else if (this->_status[i][j] == STATUS_FLAGGED) {
-                std::cout << "F ";
+                report[i][j] = 'F';
             } else if (this->_status[i][j] == STATUS_QUESTION) {
-                std::cout << "? ";
+                report[i][j] = '?';
             } else {
-                std::cout << "E "; // error, map corrupted
+                report[i][j] = 'E'; // error, map corrupted
             }
         }
-        std::cout << i << std::endl;
     }
-
-
-    // Last line is the column numbers A-J
-    std::cout << "+ ";
-    for (int i = 0; i < this->_size; i++) {
-        std::cout << (char)(i + 65) << " ";
-    }
-    std::cout << "+" << std::endl;
+    return report;
 }
 
 // Recursively reveal the field around the cell (x, y) 
@@ -208,6 +195,7 @@ void MineField::_reveal(int x, int y) {
         return;
     }
     this->_status[x][y] = STATUS_REVEALED;
+    this->_unrevealed--;
     if (this->_field[x][y] == 0) {
         for (int i = x - 1; i <= x + 1; i++) {
             for (int j = y - 1; j <= y + 1; j++) {
@@ -219,17 +207,17 @@ void MineField::_reveal(int x, int y) {
     }
 }
 
-void MineField::_reveal_all() {
+void MineField::_reveal_all_mines_unless_flagged() {
     for (int i = 0; i < this->_size; i++) {
         for (int j = 0; j < this->_size; j++) {
-            if (this->_field[i][j] == -1) {
+            if (this->_field[i][j] == -1 && this->_status[i][j] != STATUS_FLAGGED) {
                 this->_status[i][j] = STATUS_REVEALED;
             }
         }
     }
 }
 
-void MineField::_refresh() {
+void MineField::_recount() {
     // count the number of mines around each cell, write to field if not on a mine
     for (int i = 0; i < this->_size; i++) {
         for (int j = 0; j < this->_size; j++) {

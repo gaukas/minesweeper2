@@ -24,32 +24,40 @@ class MineField {
 
         /**
          * @brief Reset the minefield to its initial state.
+         * 
+         * @param safe_x A x-coordinate to guarantee the first revealed cell is not a mine.
+         * @param safe_y A y-coordinate to guarantee the first revealed cell is not a mine.
          */
-        void reset();
+        void reset(int safe_x, int safe_y);
 
         /**
          * @brief User takes an action on the minefield.   
          * 
          * @param x The x-coordinate of the action.
          * @param y The y-coordinate of the action.
-         * @param action The action to take.
          * 
          * @return the time mine has been moved if the user wins, -1 if user is not yet winning.
          */
-        int act(int x, int y, int action);
+        int flag(int x, int y);
+        int reveal(int x, int y);
 
         /**
-         * @brief Print the minefield to the console.
+         * @brief report the minefield as a 2D array of characters.
+         * @param size The size of the minefield, as both width and height. If not matching the size of the minefield, the function will return nullptr.
+         * 
+         * @return a 2D array of characters.
          */
-        void print_field();
+        char** field_report(int size);
 
     private:
-        int _size;
-        int _mines;
+        int _size; // not to be modified
+        int _mines; // not to be modified
+        int _unrevealed;
+
         int** _field;
         int** _status;
         int _mine_move_count;
-
+        
         /**
          * @brief Recursively reveal the cell: If a field is not adjacent to a mine, reveal all adjacent fields as well.
          * 
@@ -59,12 +67,12 @@ class MineField {
         void _reveal(int x, int y);
 
         /**
-         * @brief Reveal all cells in the minefield.
+         * @brief Reveal all mines in the minefield. Unless the mine is flagged.
          */        
-        void _reveal_all();
+        void _reveal_all_mines_unless_flagged();
 
         /**
-         * @brief Refresh the minefield to reflect the current state.
+         * @brief Recount the mine near each cell on field to reflect the current state.
          */
-        void _refresh();
+        void _recount();
 };
